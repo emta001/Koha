@@ -78,6 +78,15 @@
 		<div class="dialog alert">
 			<p>The following fields are wrong. Please fix them.</p>
 			<ul>
+            [% IF ( ERROR_child_no_guarantor ) %]
+                <li id="ERROR_child_no_guarantor">A child patron needs a guarantor.</li>
+            [% END %]
+            [% IF ( ERROR_guarantor_is_guarantee ) %]
+                <li id="ERROR_guarantor_is_guarantee">A guarantor cannot be a guarantee.</li>
+            [% END %]
+            [% IF ( ERROR_guarantor_not_patron ) %]
+                <li id="ERROR_guarantor_not_patron ">Guarantor has to be a patron.</li>
+            [% END %]
 			[% IF ( ERROR_login_exist ) %]
 				<li id="ERROR_login_exist">Username/password already exists.</li>
 			[% END %]
@@ -344,6 +353,7 @@
 	        </li>
 [% ELSE %]
  [% IF ( C ) %]
+ [% IF ( Koha.Preference('ChildNeedsGuarantor') && Koha.Preference('GuarantorHasToBePatron') ) %]<li id="guarantor_required"><span class="required">Required</span></li>[% END %]
  [% IF ( guarantorid ) %]
  <li id="contact-details">
  [% ELSE %]
@@ -367,6 +377,7 @@
      [% ELSE %]
         <input name="contactname" id="contactname" type="text" size="20" value="[% contactname | html %]" />
      [% END %]
+     [% IF ( Koha.Preference('ChildNeedsGuarantor') && !Koha.Preference('GuarantorHasToBePatron')) %]<span class="required">Required</span>[% END %]
  </li>
         [% END %]
         [% UNLESS nocontactfirstname %]

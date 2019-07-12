@@ -265,6 +265,19 @@ if ( $guarantorid ) {
 		        $newdata{$_} = $guarantordata->{$_};
 	        }
         }
+
+        push @errors, 'ERROR_guarantor_is_guarantee' if ( $guarantordata->{'guarantorid'} &&
+                                                          ($op eq 'save' || $op eq 'insert') );
+    }
+}
+
+my $valid_guarantor = $guarantorid ? $guarantorid : $newdata{'contactname'};
+
+if($category_type eq 'C' && ($op eq 'save' ||  $op eq 'insert') && C4::Context->preference('ChildNeedsGuarantor')){
+    if(!$valid_guarantor){ 
+        push @errors, 'ERROR_child_no_guarantor';   
+    }elsif(!$guarantorid && C4::Context->preference('GuarantorHasToBePatron')){
+        push @errors, 'ERROR_guarantor_not_patron';
     }
 }
 

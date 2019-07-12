@@ -67,6 +67,13 @@ Patrons:
                hardno: "Do not"
          - " check borrower checkout history to see if the current item has been checked out before."
      -
+         - "A child patron"
+         - pref: "ChildNeedsGuarantor"
+           choices:
+               yes: "must have"
+               no: "doesn't need"
+         - a guarantor when adding the patron.
+     -
          - pref: EnhancedMessagingPreferences
            choices:
                yes: Allow
@@ -227,7 +234,13 @@ Patrons:
                no: Allow all permitted users
          - "to access/change superlibrarian privileges."
          - "<br><strong>NOTE:</strong> A permitted user needs to have the 'permissions' flag (if no superlibrarian)."
-
+     -
+         - "The guarantor"
+         - pref: "GuarantorHasToBePatron"
+           choices:
+               yes: "has to be"
+               no: "doesn't have to be"
+         - a patron. 
     Privacy:
      -
          - Use the following URL

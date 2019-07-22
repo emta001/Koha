@@ -900,6 +900,8 @@
                                                 [% END %]
                                             </fieldset>
                                         [% END # /FOREACH b %]
+                                    [% ELSIF Koha.Preference('UsePaginationOnHoldsTable') %]
+                                        [% INCLUDE holds_table_api.inc %]
                                     [% ELSE %]
                                         [% INCLUDE holds_table.inc holds=biblioloo.reserveloop %]
                                     [% END # /IF HoldsSplitQueue %]
@@ -935,11 +937,23 @@
     [% INCLUDE 'calendar.inc' %]
     [% INCLUDE 'columns_settings.inc' %]
     [% Asset.js("js/circ-patron-search-results.js") | $raw %]
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.1/moment-with-locales.min.js"></script>
+    <script src="/intranet-tmpl/prog/js/pages/holdstableapi.js"></script>
     <script>
         var biblionumber = "[% biblionumber | $raw %]";
         var borrowernumber = "[% patron.borrowernumber | $raw %]";
         var MSG_CONFIRM_DELETE_HOLD   = _("Are you sure you want to cancel this hold?");
         var patron_homebranch = "[% Branches.GetName( patron.branchcode ) |replace("'", "\'") |replace('"', '\"') |replace('\n', '\\n') |replace('\r', '\\r') | html %]";
+        var interface = "[% interface | html %]";
+        var theme = "[% theme | html %]";
+        var pagination_on = "[% Koha.Preference('UsePaginationOnHoldsTable') %]";
+        var dateformat = "[% Koha.Preference('dateformat') %]";
+        var modify_priority = "[% CAN_user_reserveforothers_modify_holds_priority %]";
+        var suspend_holds_intranet = "[% SuspendHoldsIntranet %]";
+        var autoresume_suspend = "[% AutoResumeSuspendedHolds %]";
+        var holddate_infuture = "[% Koha.Preference('AllowHoldDateInFuture') %]"; 
+        var pickup_options = [% libraries %];
+        var holds_iteminfo = [% holds_iteminfo %];
         var override_items = {[% FOREACH bibitemloo IN bibitemloop %][% FOREACH itemloo IN bibitemloo.itemloop %][% IF ( itemloo.override ) %]
         [% itemloo.itemnumber | html %]: {
             homebranch: "[% Branches.GetName( itemloo.homebranch ) |replace("'", "\'") |replace('"', '\"') |replace('\n', '\\n') |replace('\r', '\\r') | html %]",
@@ -1083,6 +1097,12 @@
             [% END %]
 
         });
+
+        //generate patron title for paginated holdstable
+        function getPatronTitle(patron){
+            console.log(patron);
+            return '[% INCLUDE "patron-title.inc" patron=patron hide_patron_infos_if_needed=1 %]';
+        }
 
         function check() {
             var msg = "";

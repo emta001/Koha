@@ -588,6 +588,11 @@ Circulation:
                   actual: "the actual priority, which may be out of order"
                   virtual: "'virtual' priorities, where each group is numbered separately"
         -
+            - pref: UsePaginationOnHoldsTable
+              choices:
+                  yes: Use
+                  no: "Don't use"
+        -
             - pref: AllowHoldItemTypeSelection
               choices:
                   yes: Allow

@@ -29,6 +29,7 @@ script to place reserves/requests
 use Modern::Perl;
 
 use CGI qw ( -utf8 );
+use JSON;
 use List::MoreUtils qw/uniq/;
 use Date::Calc qw/Date_to_Days/;
 use C4::Output;
@@ -723,6 +724,13 @@ $template->param( exceeded_maxreserves => $exceeded_maxreserves );
 $template->param( exceeded_holds_per_record => $exceeded_holds_per_record );
 $template->param( subscriptionsnumber => CountSubscriptionFromBiblionumber($biblionumber));
 $template->param( pickup => $pickup );
+
+my $use_pagination = C4::Context->preference( 'UsePaginationOnHoldsTable' );
+
+my $libraries = ($use_pagination) ? (Koha::Libraries->search({}, { order_by => ['branchname'] })->unblessed) : {};
+$template->param( libraries => to_json($libraries));
+my $hold_iteminfo = ($use_pagination) ? (Koha::Items->search({ biblionumber => $biblionumber })->unblessed) : {};
+$template->param( holds_iteminfo => to_json($hold_iteminfo) );
 
 if ( C4::Context->preference( 'AllowHoldDateInFuture' ) ) {
     $template->param( reserve_in_future => 1 );

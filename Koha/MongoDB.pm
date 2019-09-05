@@ -23,8 +23,12 @@ use Koha::MongoDB::Logs;
 use Koha::MongoDB::Users;
 use Koha::MongoDB::Config;
 
-use Try::Tiny;
+use Koha::MongoDB::Reporting::Abstract;
+use Koha::MongoDB::Reporting::Loans;
+use Koha::MongoDB::Reporting::Items;
 
+use Try::Tiny;
+    
 sub new {
     my ($class, $params) = @_;
 
@@ -33,6 +37,9 @@ sub new {
     my $self = {
         'logs' => Koha::MongoDB::Logs->new({ dbh => $dbh }),
         'users' => Koha::MongoDB::Users->new({ dbh => $dbh }),
+        'loans' => Koha::MongoDB::Reporting::Loans->new(),
+        'xml_config' => Koha::MongoDB::Reporting::Abstract->new(),
+        'items' => Koha::MongoDB::Reporting::Items->new(),
         'config' => $config,
         'client' => $dbh,
         'settings' => $config->getSettings(),
@@ -146,4 +153,103 @@ sub _remove_logs_cache {
     }
 }
 
+sub push_loans {
+    my $self = shift;
+    my ($mongocol) = @_;
+    my $loans = $self->{loans};
+    my $items = $self->{items};
+    my $config = $self->{xml_config};
+    my $loans_config = $config->loadConfigs()->{conf}; #<-!!!
+
+    my $itemTypes = $config->{itemTypeToStatisticalCategory};
+    my $locations = $config->getShelvingType($loans_config);
+    
+    try {  
+        my $loans_sql = $loans->getLoans({
+            order_by => 'branch',
+            limit => 20
+        });
+
+        #collect branches and their loans itemnumbers
+        my %branchgroups;
+        my $key;
+        for my $loan (@{$loans_sql}){  
+            $key = $loan->{branch};  
+            push @{$branchgroups{$key}}, $loan->{itemnumber};        
+        }
+
+        my $result;
+        my $prev_branch;
+        my @loans_mongo;
+        my $loans_info;
+        
+        #iterate hash 
+        while (my($branch_key, $itemnumbers) = each %branchgroups){
+            
+            my $loans_total = 0;
+            my $books_total = 0;
+            my $books_fin = 0;
+            my $books_swe = 0;
+            my $books_other_lan = 0;
+            my $cds = 0;
+
+            foreach my $itemnumber (@{$itemnumbers}){
+                
+                my $item = $items->getItem($itemnumber);
+                my $biblionumber = $item->{biblionumber};
+                my $permanent_location = $item->{permanent_location};
+                my $biblio_records;
+                
+                if(defined $biblionumber){
+                    $biblio_records = $items->getBiblioRecords($biblionumber);    
+                }
+
+                $loans_total++; 
+                
+                if(defined $biblio_records){
+                    if($biblio_records->{itemtype} eq 'KI'){
+                        $books_total++; 
+                        if($biblio_records->{language} eq 'fin'){
+                            $books_fin++;
+                        }elsif($biblio_records->{language} eq 'swe'){
+                            $books_swe++;
+                        }else{
+                            $books_other_lan++;
+                        } 
+                    } 
+                    if($biblio_records->{itemtype} eq 'CD'){
+                        $cds++;
+                    } 
+                }
+
+                
+                $loans_info = [{
+                    loans_total => $loans_total,
+                    loans_books => [{
+                        books_total => $books_total,
+                        books_fin => $books_fin,
+                        books_swe => $books_swe ,
+                        books_other_lan => $books_other_lan 
+                    }]
+                }];
+            
+                $result = $loans->setLoans($branch_key, $loans_info);    
+            };
+                
+            push @loans_mongo, $result;
+      
+        }
+
+        my $return = $mongocol->insert_one({
+            timestamp => "nyt",
+            branches=> \@loans_mongo 
+            });
+
+    } catch {
+        warn "error: $_";
+    }
+  
+}
+=uu
+=cut
 1;

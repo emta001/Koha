@@ -5,33 +5,31 @@ use C4::Context;
 use Koha::MongoDB;
 use Data::Dumper qw(Dumper);
 
-#MySQL:stä haku
-my $dbh = C4::Context->dbh;
-my $sth = $dbh->prepare($query);
+use Koha::MongoDB::Reporting::Loans;
 
-$sth->execute();
-
-my @statistics;
-while(my $row = $sth->fetchrow_hashref){
-    push @statistics, $row;
-}
-
-#MongoDB:hen kirjoitus
 my $mongodb = Koha::MongoDB->new();
 my $client = $mongodb->{client};
+my $test_db = $client->get_database('testikanta');
+my $test_collection = $test_db->get_collection('loans_test');
+
+my $loans = Koha::MongoDB::Reporting::Loans->new(); 
+
+print $loans->getLoans();
+
+my $test_infos = $test_collection->find;
+
+while(my $i = $test_infos -> next){
+    print Dumper $i;
+}
+
+=SEKALAVA
 #my $settings = $mongodb->{settings};
 #$settings->{database}
+my $yaml = C4::Context->preference('OKM');
+    $yaml = Encode::encode('UTF-8', $yaml, Encode::FB_CROAK);
+    $data->{conf} = YAML::XS::Load($yaml);
 
-#alustava
-my $test_db = $client->get_database('testikanta');
-my $test_collection = $test_db->get_collection('testikokoelma');
-
-=yy
-my $query = "SELECT datetime, branch, type, itemnumber, itemtype, borrowernumber FROM statistics limit 1";
-foreach my $statistic (@statistics){
-    #my ($datetime, $branch, $type, $itemnumber, $itemtype, $borrowernumber) = @_;    
-
-    $test_collection->insert_one({
+$test_collection->insert_one({
         datetime => $statistic->{datetime},
         branch => $statistic->{branch},
         type => $statistic->{type},
@@ -40,10 +38,4 @@ foreach my $statistic (@statistics){
             itemtype => $statistic->{itemtype} }, #<-ehkä noin?
         borrowernumber => $statistic->{borrowernumber}
     });
-}
-
-my $test_infos = $test_collection->find;
-
-while(my $i = $test_infos -> next){
-    print Dumper $i;
-}
+=cut

@@ -23,12 +23,12 @@ use Koha::MongoDB::Logs;
 use Koha::MongoDB::Users;
 use Koha::MongoDB::Config;
 
-use Koha::MongoDB::Reporting::Abstract;
+use Koha::MongoDB::Reporting::Configs;
 use Koha::MongoDB::Reporting::Loans;
 use Koha::MongoDB::Reporting::Items;
 
-use Try::Tiny;
-    
+use Try::Tiny; 
+
 sub new {
     my ($class, $params) = @_;
 
@@ -38,7 +38,7 @@ sub new {
         'logs' => Koha::MongoDB::Logs->new({ dbh => $dbh }),
         'users' => Koha::MongoDB::Users->new({ dbh => $dbh }),
         'loans' => Koha::MongoDB::Reporting::Loans->new(),
-        'xml_config' => Koha::MongoDB::Reporting::Abstract->new(),
+        'xml_config' => Koha::MongoDB::Reporting::Configs->new(),
         'items' => Koha::MongoDB::Reporting::Items->new(),
         'config' => $config,
         'client' => $dbh,
@@ -161,21 +161,23 @@ sub push_loans {
     my $config = $self->{xml_config};
     my $loans_config = $config->loadConfigs()->{conf}; #<-!!!
 
-    my $itemTypes = $config->{itemTypeToStatisticalCategory};
-    my $locations = $config->getShelvingType($loans_config);
-    
+    my $itemTypes = $loans_config->{itemTypeToStatisticalCategory}; 
+
+    my $adults_locations = $loans_config->{adultShelvingLocations};
+    my $juveniles_locations = $loans_config->{juvenileShelvingLocations}; 
+
     try {  
         my $loans_sql = $loans->getLoans({
             order_by => 'branch',
-            limit => 20
+            limit => 50
         });
 
         #collect branches and their loans itemnumbers
         my %branchgroups;
         my $key;
-        for my $loan (@{$loans_sql}){  
+        for my $loan (@{$loans_sql}){   
             $key = $loan->{branch};  
-            push @{$branchgroups{$key}}, $loan->{itemnumber};        
+            push @{$branchgroups{$key}}, $loan->{itemnumber};      
         }
 
         my $result;
@@ -183,32 +185,47 @@ sub push_loans {
         my @loans_mongo;
         my $loans_info;
         
-        #iterate hash 
         while (my($branch_key, $itemnumbers) = each %branchgroups){
             
             my $loans_total = 0;
+
             my $books_total = 0;
             my $books_fin = 0;
             my $books_swe = 0;
             my $books_other_lan = 0;
-            my $cds = 0;
+
+            my $adults_fiction = 0;
+            my $adults_fact = 0;
+            my $juveniles_fiction = 0;
+            my $juveniles_fact = 0;
+
+            my $sheet_music = 0;
+            my $recordings_music = 0;
+            my $recordings_other = 0;
+            my $videos = 0;
+            my $cdroms = 0;
+            my $dvds_brs = 0;
+            my $others = 0;
 
             foreach my $itemnumber (@{$itemnumbers}){
                 
                 my $item = $items->getItem($itemnumber);
-                my $biblionumber = $item->{biblionumber};
                 my $permanent_location = $item->{permanent_location};
-                my $biblio_records;
+                my $biblionumber = $item->{biblionumber};
                 
+                my $biblio_records;
                 if(defined $biblionumber){
                     $biblio_records = $items->getBiblioRecords($biblionumber);    
                 }
 
-                $loans_total++; 
-                
+                #!!!
                 if(defined $biblio_records){
-                    if($biblio_records->{itemtype} eq 'KI'){
-                        $books_total++; 
+
+                    my $category = $itemTypes->{$biblio_records->{itemtype}};
+
+                    if($category eq 'Books'){
+                        $books_total++;
+                         
                         if($biblio_records->{language} eq 'fin'){
                             $books_fin++;
                         }elsif($biblio_records->{language} eq 'swe'){
@@ -216,25 +233,66 @@ sub push_loans {
                         }else{
                             $books_other_lan++;
                         } 
-                    } 
-                    if($biblio_records->{itemtype} eq 'CD'){
-                        $cds++;
-                    } 
+
+                        if(grep(/^($permanent_location)$/, @{$adults_locations})){
+                            if($biblio_records->{cn_class} >= 80 && $biblio_records->{cn_class} <= 85){
+                                $adults_fiction++;
+                            }elsif(($biblio_records->{cn_class} >= 0 && $biblio_records->{cn_class} <= 79) || ($biblio_records->{cn_class} >= 86 && $biblio_records->{cn_class} <= 99)){
+                                $adults_fact++;
+                            }
+                        }elsif(grep(/^($permanent_location)$/, @{$juveniles_locations})){
+                            if($biblio_records->{cn_class} >= 80 && $biblio_records->{cn_class} <= 85){
+                                $juveniles_fiction++;
+                            }elsif(($biblio_records->{cn_class} >= 0 && $biblio_records->{cn_class} <= 79) || ($biblio_records->{cn_class} >= 86 && $biblio_records->{cn_class} <= 99)){
+                                $juveniles_fact++;
+                            }
+                        }
+
+                    }elsif($category eq 'SheetMusicAndScores'){
+                        $sheet_music++;
+                    }elsif($biblio_records->{cn_class} eq 78 && $category eq 'Recordings'){
+                        $recordings_music++;
+                    }elsif($biblio_records->{cn_class} ne 78 && $category eq 'Recordings'){
+                        $recordings_other++;
+                    }elsif($category eq 'Videos'){
+                        $videos++;
+                    }elsif($category eq 'CDROMs'){
+                        $cdroms++;
+                    }elsif($category eq 'DVDsAndBluRays'){
+                        $dvds_brs++;
+                    }elsif($category eq 'Other'){
+                        $others++;
+                    }
+
                 }
 
-                
+                $loans_total++;
+
+                #!!!!
                 $loans_info = [{
                     loans_total => $loans_total,
-                    loans_books => [{
+                    books => [{
                         books_total => $books_total,
                         books_fin => $books_fin,
                         books_swe => $books_swe ,
-                        books_other_lan => $books_other_lan 
-                    }]
+                        books_other_lan => $books_other_lan, 
+                        adults_fiction => $adults_fiction,
+                        adults_fact => $adults_fact,
+                        juveniles_fiction => $juveniles_fiction,
+                        juveniles_fact => $juveniles_fact
+                    }],
+                    sheet_music => $sheet_music,
+                    recordings_music => $recordings_music,
+                    recordings_other => $recordings_other,
+                    videos => $videos,
+                    cdroms => $cdroms,
+                    dvds_brs => $dvds_brs,
+                    others => $others
+                
                 }];
             
                 $result = $loans->setLoans($branch_key, $loans_info);    
-            };
+            }
                 
             push @loans_mongo, $result;
       

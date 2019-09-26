@@ -4,6 +4,8 @@ use Moose;
 use Try::Tiny;
 use MongoDB;
 
+use C4::Biblio;
+
 use Koha::Items;
 use Koha::Database;
 use Koha::BiblioUtils;
@@ -22,7 +24,7 @@ sub getItem{
         if($del){
             $item = { $del->get_columns } if $del;
         } else {
-            $item = { biblionumber => '0' }; #Mock-up?
+            $item = { biblionumber => 0 }; #Mock-up?
         }
     }
     
@@ -33,15 +35,16 @@ sub getBiblioRecords{
     my $self = shift;
     my ($biblionumber) = @_;
     
-    my $marcs = Koha::BiblioUtils->get_from_biblionumber($biblionumber);
-    
-    my $record = $marcs->{record};
-    my $result;
+    my $marcs = GetMarcBiblio($biblionumber); 
 
-    if(blessed $record && $record->isa('MARC::Record')){
-        $result->{itemtype} = $record->subfield('942', 'c'); 
-        $result->{language} = $record->subfield('041', 'a'); 
-        $result->{cn_class} = $record->subfield('084', 'a');  
+    my $result;
+    if(blessed $marcs && $marcs->isa('MARC::Record')){
+        $result->{itemtype} = $marcs->subfield('942', 'c'); 
+        $result->{language} = $marcs->subfield('041', 'a');
+        
+        my $cn_class = $self->cnClass($marcs->subfield('084', 'a'));
+        
+        $result->{cn_class} = $cn_class;  
     }
 
     return $result;   
@@ -51,9 +54,10 @@ sub cnClass{
     my $self = shift;
     my ($cn_class) = @_;
 
-    my $result = $cn_class;
+    #palauta myös loppuosa jos tarpeen
+    my ($cn_primary, $cn_decimal) = split /\./, $cn_class;
 
-    return $result;
+    return $cn_primary;
 }
 
 1;

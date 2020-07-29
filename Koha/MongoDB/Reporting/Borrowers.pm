@@ -81,7 +81,7 @@ sub generateBorrowerGroups{
             push @{$borrower_branchgroups{$datetime}{$row->{branch}}}, $row->{borrowernumber};
         }
     }
-    warn Data::Dumper::Dumper \%borrower_branchgroups;
+
     return \%borrower_branchgroups;
 
 }

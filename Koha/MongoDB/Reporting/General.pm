@@ -76,14 +76,13 @@ sub checkCollection{
     my ($mongocol, $from_date) = @_;
     my $date = Time::Piece->strptime($from_date, '%Y-%m-%d %H:%M:%S');
     $date = $date->strftime('%Y-%m-%d');
-    $date = DateTime::Format::ISO8601->parse_datetime($date, time_zone=>'UTC');
 
     my $find_branch = $mongocol->find_one({
-        "timestamp" => $date
+        "timestamp" => qr/^$date/
     });
 
     if($find_branch){
-        warn "Timestamp $from_date already in collection $mongocol";
+        print "Collection " .uc($mongocol->name). " already collected on $date.\n";
         return 1;
     }
 

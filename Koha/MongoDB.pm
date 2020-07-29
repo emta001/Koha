@@ -170,9 +170,7 @@ sub push_loans {
     try {
 
         my $check_collection = $generals->checkCollection($mongocol, $from_date);
-        if($check_collection){
-            return;
-        }
+        return if $check_collection;
 
         my $configs = $generals->loadConfigs();
         my $itemtypes = $configs->{itemTypeToStatisticalCategory};
@@ -219,9 +217,7 @@ sub push_collections {
     try {
 
         my $check_collection = $generals->checkCollection($mongocol, $from_date);
-        if($check_collection){
-            return;
-        }
+        return if $check_collection;
 
         my $configs = $generals->loadConfigs();
 
@@ -268,9 +264,7 @@ sub push_acquisitions {
     try {
 
         my $check_collection = $generals->checkCollection($mongocol, $from_date);
-        if($check_collection){
-            return;
-        }
+        return if $check_collection;
 
         my $configs = $generals->loadConfigs();
         my $itemtypes = $configs->{itemTypeToStatisticalCategory};
@@ -312,9 +306,7 @@ sub push_deleted_items {
     try {
 
         my $check_collection = $generals->checkCollection($mongocol, $from_date);
-        if($check_collection){
-            return;
-        }
+        return if $check_collection;
 
         my $configs = $generals->loadConfigs();
         my $itemtypes = $configs->{itemTypeToStatisticalCategory};
@@ -334,10 +326,7 @@ sub push_deleted_items {
                 $total++;
             }
 
-            $result = {
-                branch => $branch_key,
-                total => $total
-            };
+            $result = $items->setDeletedItems($branch_key, $total);
 
             push @deleted_mongo, $result;
         }
@@ -360,9 +349,7 @@ sub push_borrowers {
     try {
 
         my $check_collection = $generals->checkCollection($mongocol, $from_date);
-        if($check_collection){
-            return;
-        }
+        return if $check_collection;
 
         my $configs = $generals->loadConfigs();
         my $patron_categories = $configs->{patronCategories};
@@ -381,10 +368,7 @@ sub push_borrowers {
                     $total++;
                 }
 
-                $result = {
-                    branch => $branch_key,
-                    total => $total
-                };
+                $result = $borrowers->setBorrowers($branch_key, $total);
 
                 push @borrowers_mongo, $result;
 
